@@ -8,6 +8,7 @@
 
 #include "buffer/replacer.h"
 #include "common/config.h"
+#include "glog/logging.h"
 
 using namespace std;
 
@@ -37,6 +38,9 @@ class LRUReplacer : public Replacer {
 
 private:
   // add your own private member variables here
+  list<frame_id_t> lru_list_;
+  unordered_set<frame_id_t> lru_set_;
+  size_t max_size_;
 };
 
 #endif  // MINISQL_LRU_REPLACER_H
