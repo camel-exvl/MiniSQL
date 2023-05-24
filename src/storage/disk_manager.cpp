@@ -71,7 +71,7 @@ page_id_t DiskManager::AllocatePage() {
             WritePhysicalPage(META_PAGE_ID, meta_data_);
             WritePhysicalPage(bitmap_physical_page_id, bitmap_page);
         } else {
-            throw std::runtime_error("Allocate page failed.");
+            LOG(ERROR) << "Allocate page failed.";
         }
     } else {
         // allocate a new page in an existing extent
