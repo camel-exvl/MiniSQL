@@ -44,9 +44,8 @@ uint32_t Row::SerializeTo(char *buf, Schema *schema) const {
 uint32_t Row::DeserializeFrom(char *buf, Schema *schema) {
     ASSERT(schema != nullptr, "Invalid schema before serialize.");
     ASSERT(fields_.empty(), "Non empty field in row.");
-    if (!fields_.empty()) {
-        LOG(WARNING) << "This row is not empty." << std::endl;
-        fields_.clear();
+    if (schema->GetColumnCount() == 0) {
+        return 0;
     }
     uint32_t offset = 0;
     page_id_t page_id;
@@ -77,6 +76,7 @@ uint32_t Row::DeserializeFrom(char *buf, Schema *schema) {
         } else {
             Field *field = new Field(type);
             offset += field->DeserializeFrom(buf + offset, type, &field, false);
+            fields_.push_back(field);
         }
     }
     delete[] nullBitmap;
