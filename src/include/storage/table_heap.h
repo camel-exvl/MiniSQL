@@ -8,6 +8,9 @@
 #include "transaction/lock_manager.h"
 #include "transaction/log_manager.h"
 
+#define BEGIN_ITERATOR 0
+#define END_ITERATOR 1
+
 class TableHeap {
   friend class TableIterator;
 
@@ -96,7 +99,7 @@ class TableHeap {
   /**
    * @return the end iterator of this table
    */
-  TableIterator End();
+  TableIterator End(Transaction *txn);
 
   /**
    * @return the id of the first page of this table
@@ -113,7 +116,11 @@ private:
           schema_(schema),
           log_manager_(log_manager),
           lock_manager_(lock_manager) {
-    ASSERT(false, "Not implemented yet.");
+    auto first_page = reinterpret_cast<TablePage *>(buffer_pool_manager_->NewPage(first_page_id_));
+    assert(first_page != nullptr);
+    first_page_id_ = first_page->GetPageId();
+    first_page->Init(first_page_id_, INVALID_PAGE_ID, log_manager_, txn);
+    buffer_pool_manager_->UnpinPage(first_page_id_, true);
   };
 
   explicit TableHeap(BufferPoolManager *buffer_pool_manager, page_id_t first_page_id, Schema *schema,
