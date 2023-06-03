@@ -59,4 +59,7 @@ TEST(TableHeapTest, TableHeapSampleTest) {
     delete row_kv.second;
   }
   ASSERT_EQ(size, 0);
+  delete table_heap;
+  delete bpm_;
+  delete disk_mgr_;
 }

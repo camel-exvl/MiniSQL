@@ -74,7 +74,7 @@ uint32_t Row::DeserializeFrom(char *buf, Schema *schema) {
         if (nullBitmap[i / 8] & (1 << (i % 8))) {
             fields_.push_back(new Field(type));
         } else {
-            Field *field = new Field(type);
+            Field *field;
             offset += field->DeserializeFrom(buf + offset, type, &field, false);
             fields_.push_back(field);
         }

@@ -147,7 +147,7 @@ TEST(TupleTest, ColumnSerializeDeserializeTest) {
         EXPECT_EQ(p - pre, column.GetSerializedSize());
     }
     // Deserialize phase
-    std::vector<Column> deserialized_columns;
+    std::vector<Column *> deserialized_columns;
     uint32_t ofs = 0 , pre_ofs = 0;
     for (int i = 0; i < columns.size(); ++i) {
         Column *column = nullptr;
@@ -158,12 +158,13 @@ TEST(TupleTest, ColumnSerializeDeserializeTest) {
     }
     EXPECT_EQ(columns.size(), deserialized_columns.size());
     for (int i = 0; i < columns.size(); ++i) {
-        EXPECT_EQ(CmpBool::kTrue, columns[i].GetName().compare(deserialized_columns[i].GetName()) == 0);
-        EXPECT_EQ(columns[i].GetType(), deserialized_columns[i].GetType());
-        EXPECT_EQ(columns[i].GetLength(), deserialized_columns[i].GetLength());
-        EXPECT_EQ(columns[i].GetTableInd(), deserialized_columns[i].GetTableInd());
-        EXPECT_EQ(columns[i].IsNullable(), deserialized_columns[i].IsNullable());
-        EXPECT_EQ(columns[i].IsUnique(), deserialized_columns[i].IsUnique());
+        EXPECT_EQ(CmpBool::kTrue, columns[i].GetName().compare(deserialized_columns[i]->GetName()) == 0);
+        EXPECT_EQ(columns[i].GetType(), deserialized_columns[i]->GetType());
+        EXPECT_EQ(columns[i].GetLength(), deserialized_columns[i]->GetLength());
+        EXPECT_EQ(columns[i].GetTableInd(), deserialized_columns[i]->GetTableInd());
+        EXPECT_EQ(columns[i].IsNullable(), deserialized_columns[i]->IsNullable());
+        EXPECT_EQ(columns[i].IsUnique(), deserialized_columns[i]->IsUnique());
+        delete deserialized_columns[i];
     }
 }
 
@@ -191,6 +192,7 @@ TEST(TupleTest, SchemaSerializeDeserializeTest) {
         EXPECT_EQ(schema->GetColumn(i)->IsNullable(), deserialized_schema->GetColumn(i)->IsNullable());
         EXPECT_EQ(schema->GetColumn(i)->IsUnique(), deserialized_schema->GetColumn(i)->IsUnique());
     }
+    delete deserialized_schema;
 }
 
 TEST(TupleTest, RowTest) {
