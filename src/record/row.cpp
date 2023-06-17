@@ -7,12 +7,12 @@ uint32_t Row::SerializeTo(char *buf, Schema *schema) const {
         return 0;
     }
     uint32_t offset = 0;
-    page_id_t page_id = rid_.GetPageId();
-    uint32_t slot_num = rid_.GetSlotNum();
-    MACH_WRITE_UINT32(buf + offset, page_id);
-    offset += sizeof(page_id_t);
-    MACH_WRITE_INT32(buf + offset, slot_num);
-    offset += sizeof(uint32_t);
+    // page_id_t page_id = rid_.GetPageId();
+    // uint32_t slot_num = rid_.GetSlotNum();
+    // MACH_WRITE_UINT32(buf + offset, page_id);
+    // offset += sizeof(page_id_t);
+    // MACH_WRITE_INT32(buf + offset, slot_num);
+    // offset += sizeof(uint32_t);
 
     // Field Nums
     MACH_WRITE_UINT32(buf + offset, fields_.size());
@@ -48,13 +48,13 @@ uint32_t Row::DeserializeFrom(char *buf, Schema *schema) {
         return 0;
     }
     uint32_t offset = 0;
-    page_id_t page_id;
-    uint32_t slot_num;
-    page_id = MACH_READ_UINT32(buf + offset);
-    offset += sizeof(page_id_t);
-    slot_num = MACH_READ_INT32(buf + offset);
-    offset += sizeof(uint32_t);
-    rid_ = RowId(page_id, slot_num);
+    // page_id_t page_id;
+    // uint32_t slot_num;
+    // page_id = MACH_READ_UINT32(buf + offset);
+    // offset += sizeof(page_id_t);
+    // slot_num = MACH_READ_INT32(buf + offset);
+    // offset += sizeof(uint32_t);
+    // rid_ = RowId(page_id, slot_num);
 
     // Field Nums
     uint32_t fieldNums;
@@ -90,8 +90,8 @@ uint32_t Row::GetSerializedSize(Schema *schema) const {
         return 0;
     }
     uint32_t size = 0;
-    size += sizeof(page_id_t);
-    size += sizeof(uint32_t);
+    // size += sizeof(page_id_t);
+    // size += sizeof(uint32_t);
 
     // Field Nums
     size += sizeof(uint32_t);

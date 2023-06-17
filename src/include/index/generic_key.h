@@ -66,6 +66,15 @@ class KeyManager {
   // constructor
   KeyManager(Schema *key_schema, size_t key_size) : key_size_(key_size), key_schema_(key_schema) {}
 
+  // NOTE: FOR DEBUG
+  std::string PrintKey(const GenericKey *key) const {
+    std::string str = "";
+    for (int i = 0; i < key_size_ / sizeof(int); i++) {
+      str += std::to_string(((int *)key)[i]);
+    }
+    return str;
+  }
+
  private:
   int key_size_;
   Schema *key_schema_;

@@ -101,7 +101,7 @@ class TableHeap {
   /**
    * @return the end iterator of this table
    */
-  TableIterator End(Transaction *txn);
+  TableIterator End();
 
   /**
    * @return the id of the first page of this table

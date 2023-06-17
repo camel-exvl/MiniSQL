@@ -141,6 +141,6 @@ TableIterator TableHeap::Begin(Transaction *txn) {
     return TableIterator(BEGIN_ITERATOR, first_page_id_, schema_, buffer_pool_manager_, txn, log_manager_, lock_manager_);
 }
 
-TableIterator TableHeap::End(Transaction *txn) {
-    return TableIterator(END_ITERATOR, first_page_id_, schema_, buffer_pool_manager_, txn, log_manager_, lock_manager_);
+TableIterator TableHeap::End() {
+    return TableIterator(END_ITERATOR, first_page_id_, schema_, buffer_pool_manager_, nullptr, log_manager_, lock_manager_);
 }
