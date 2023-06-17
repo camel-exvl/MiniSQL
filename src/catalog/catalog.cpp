@@ -51,12 +51,14 @@ CatalogMeta *CatalogMeta::DeserializeFrom(char *buf) {
     return meta;
 }
 
-/**
- * TODO: Student Implement
- */
 uint32_t CatalogMeta::GetSerializedSize() const {
-  ASSERT(false, "Not Implemented yet");
-  return 0;
+  uint32_t size = 0;
+  size += 4;  // magic num
+  size += 4;  // table nums
+  size += 4;  // index nums
+  size += table_meta_pages_.size() * 8;
+  size += index_meta_pages_.size() * 8;
+  return size;
 }
 
 CatalogMeta::CatalogMeta() {}
