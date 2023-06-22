@@ -43,7 +43,7 @@ uint32_t Row::SerializeTo(char *buf, Schema *schema) const {
 
 uint32_t Row::DeserializeFrom(char *buf, Schema *schema) {
     ASSERT(schema != nullptr, "Invalid schema before serialize.");
-    ASSERT(fields_.empty(), "Non empty field in row.");
+    fields_.clear();
     if (schema->GetColumnCount() == 0) {
         return 0;
     }

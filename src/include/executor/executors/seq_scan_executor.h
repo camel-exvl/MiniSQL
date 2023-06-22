@@ -10,6 +10,7 @@
 #include "executor/execute_context.h"
 #include "executor/executors/abstract_executor.h"
 #include "executor/plans/seq_scan_plan.h"
+#include "storage/table_iterator.h"
 
 /**
  * The SeqScanExecutor executor executes a sequential table scan.
@@ -22,6 +23,11 @@ class SeqScanExecutor : public AbstractExecutor {
    * @param plan The sequential scan plan to be executed
    */
   SeqScanExecutor(ExecuteContext *exec_ctx, const SeqScanPlanNode *plan);
+
+  ~SeqScanExecutor() override {
+    delete table_iter_;
+    delete end_iter_;
+  }
 
   /** Initialize the sequential scan */
   void Init() override;
@@ -40,6 +46,8 @@ class SeqScanExecutor : public AbstractExecutor {
  private:
   /** The sequential scan plan node to be executed */
   const SeqScanPlanNode *plan_;
+  TableIterator *table_iter_;
+  TableIterator *end_iter_;
 };
 
 #endif  // MINISQL_SEQ_SCAN_EXECUTOR_H
