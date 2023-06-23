@@ -71,49 +71,50 @@ TEST_F(ExecutorTest, SimpleIndexScanTest) {
   }
 }
 
-// // DELETE FROM table-1 WHERE id == 50;
-// TEST_F(ExecutorTest, SimpleDeleteTest) {
-//   // Construct query plan
-//   TableInfo *table_info;
-//   GetExecutorContext()->GetCatalog()->GetTable("table-1", table_info);
-//   const Schema *schema = table_info->GetSchema();
-//   auto col_id = MakeColumnValueExpression(*schema, 0, "id");
-//   auto const50 = MakeConstantValueExpression(Field(kTypeInt, 50));
-//   auto predicate = MakeComparisonExpression(col_id, const50, "=");
-//   auto out_schema = MakeOutputSchema({{"id", col_id}});
-//   auto scan_plan = std::make_shared<SeqScanPlanNode>(out_schema, table_info->GetTableName(), predicate);
+// DELETE FROM table-1 WHERE id == 50;
+TEST_F(ExecutorTest, SimpleDeleteTest) {
+  // Construct query plan
+  TableInfo *table_info;
+  GetExecutorContext()->GetCatalog()->GetTable("table-1", table_info);
+  const Schema *schema = table_info->GetSchema();
+  auto col_id = MakeColumnValueExpression(*schema, 0, "id");
+  auto const50 = MakeConstantValueExpression(Field(kTypeInt, 50));
+  auto predicate = MakeComparisonExpression(col_id, const50, "=");
+  auto out_schema = MakeOutputSchema({{"id", col_id}});
+  auto scan_plan = std::make_shared<SeqScanPlanNode>(out_schema, table_info->GetTableName(), predicate);
 
-//   // Create the index
-//   IndexInfo *index_info = nullptr;
-//   std::vector<std::string> index_keys{"id"};
-//   auto r3 =
-//       GetExecutorContext()->GetCatalog()->CreateIndex("table-1", "index-1", index_keys, GetTxn(), index_info, "bptree");
-//   ASSERT_EQ(DB_SUCCESS, r3);
+  // Create the index
+  IndexInfo *index_info = nullptr;
+  std::vector<std::string> index_keys{"id"};
+  auto r3 =
+      GetExecutorContext()->GetCatalog()->CreateIndex("table-1", "index-1", index_keys, GetTxn(), index_info, "bptree");
+  ASSERT_EQ(DB_SUCCESS, r3);
 
-//   std::vector<Row> result_set;
-//   GetExecutionEngine()->ExecutePlan(scan_plan, &result_set, GetTxn(), GetExecutorContext());
+  std::vector<Row> result_set;
+  GetExecutionEngine()->ExecutePlan(scan_plan, &result_set, GetTxn(), GetExecutorContext());
 
-//   // Verify
-//   ASSERT_EQ(result_set.size(), 1);
-//   for (const auto &row : result_set) {
-//     ASSERT_TRUE(row.GetField(0)->CompareEquals(Field(kTypeInt, 50)));
-//   }
+  // Verify
+  ASSERT_EQ(result_set.size(), 1);
+  for (const auto &row : result_set) {
+    ASSERT_TRUE(row.GetField(0)->CompareEquals(Field(kTypeInt, 50)));
+  }
 
-//   // DELETE FROM table-1 WHERE id == 50
-//   const Row index_key = Row(result_set[0]);
-//   auto delete_plan = std::make_shared<DeletePlanNode>(out_schema, scan_plan, table_info->GetTableName());
-//   GetExecutionEngine()->ExecutePlan(delete_plan, &result_set, GetTxn(), GetExecutorContext());
-//   result_set.clear();
+  // DELETE FROM table-1 WHERE id == 50 NOTE: 这里index_key需要和index_info的schema一致，而非table_info的schema
+  Row index_key = Row(result_set[0]);
+  index_key.GetKeyFromRow(schema, index_info->GetIndexKeySchema(), index_key);
+  auto delete_plan = std::make_shared<DeletePlanNode>(out_schema, scan_plan, table_info->GetTableName());
+  GetExecutionEngine()->ExecutePlan(delete_plan, &result_set, GetTxn(), GetExecutorContext());
+  result_set.clear();
 
-//   // SELECT id FROM table-1 WHERE id == 50
-//   GetExecutionEngine()->ExecutePlan(scan_plan, &result_set, GetTxn(), GetExecutorContext());
-//   ASSERT_TRUE(result_set.empty());
+  // SELECT id FROM table-1 WHERE id == 50
+  GetExecutionEngine()->ExecutePlan(scan_plan, &result_set, GetTxn(), GetExecutorContext());
+  ASSERT_TRUE(result_set.empty());
 
-//   // Ensure the key was removed from the index
-//   std::vector<RowId> rids{};
-//   index_info->GetIndex()->ScanKey(index_key, rids, GetTxn());
-//   ASSERT_TRUE(rids.empty());
-// }
+  // Ensure the key was removed from the index
+  std::vector<RowId> rids{};
+  index_info->GetIndex()->ScanKey(index_key, rids, GetTxn());
+  ASSERT_TRUE(rids.empty());
+}
 
 // INSERT INTO table-1 VALUES (1001, "aaa", 2.33);
 TEST_F(ExecutorTest, SimpleRawInsertTest) {
