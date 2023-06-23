@@ -8,6 +8,7 @@
 #include "executor/execute_context.h"
 #include "executor/executors/abstract_executor.h"
 #include "executor/plans/update_plan.h"
+#include "planner/expressions/constant_value_expression.h"
 
 /**
  * UpdateExecutor executes an update on a table.
@@ -57,6 +58,8 @@ class UpdateExecutor : public AbstractExecutor {
   std::vector<IndexInfo *> index_info_;
   /** The child executor to obtain value from */
   std::unique_ptr<AbstractExecutor> child_executor_;
+  TableInfo *table_info_;
+  TableHeap *table_heap_;
 };
 
 #endif  // MINISQL_UPDATE_EXECUTOR_H
