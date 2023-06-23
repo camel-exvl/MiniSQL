@@ -68,11 +68,13 @@ class KeyManager {
 
   // NOTE: FOR DEBUG
   std::string PrintKey(const GenericKey *key) const {
-    std::string str = "";
-    for (int i = 0; i < key_size_ / sizeof(int); i++) {
-      str += std::to_string(((int *)key)[i]);
+    std::string ret = "";
+    Row row(INVALID_ROWID);
+    DeserializeToKey(key, row, key_schema_);
+    for (uint32_t i = 0; i < row.GetFieldCount(); i++) {
+      ret += row.GetField(i)->toString() + " ";
     }
-    return str;
+    return ret;
   }
 
  private:

@@ -1,12 +1,14 @@
 #pragma once
 
 #include <vector>
+#include <algorithm>
 
 #include "executor/execute_context.h"
 #include "executor/executors/abstract_executor.h"
 #include "executor/plans/index_scan_plan.h"
 #include "planner/expressions/column_value_expression.h"
 #include "planner/expressions/comparison_expression.h"
+#include "planner/expressions/constant_value_expression.h"
 
 /**
  * The IndexScanExecutor executor can over a table.
@@ -38,4 +40,7 @@ class IndexScanExecutor : public AbstractExecutor {
 
   /** The sequential scan plan node to be executed */
   const IndexScanPlanNode *plan_;
+  vector<RowId> row_ids_;
+  int cur_row_id_;
+  TableHeap *table_heap_;
 };

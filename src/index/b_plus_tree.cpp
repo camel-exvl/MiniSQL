@@ -225,6 +225,26 @@ void BPlusTree::Remove(const GenericKey *key, Transaction *transaction) {
   assert(leaf_page != nullptr);
   auto *leaf_node = reinterpret_cast<LeafPage *>(leaf_page->GetData());
   leaf_node->RemoveAndDeleteRecord(key, processor_);
+  // update parent
+  Page *parent_page = buffer_pool_manager_->FetchPage(leaf_node->GetParentPageId());
+  page_id_t cur_page_id = leaf_node->GetPageId();
+  for(;;) {
+    assert(parent_page != nullptr);
+    InternalPage *parent_node = reinterpret_cast<InternalPage *>(parent_page->GetData());
+    if (parent_node->ValueIndex(cur_page_id) == 0) {  // first child
+      buffer_pool_manager_->UnpinPage(parent_page->GetPageId(), false);
+      if (parent_node->GetParentPageId() == INVALID_PAGE_ID) {
+        break;
+      } else {
+        cur_page_id = parent_node->GetPageId();
+        parent_page = buffer_pool_manager_->FetchPage(parent_node->GetParentPageId());
+      }
+    } else {
+      parent_node->SetKeyAt(parent_node->ValueIndex(cur_page_id), leaf_node->KeyAt(0));
+      buffer_pool_manager_->UnpinPage(parent_page->GetPageId(), true);
+      break;
+    }
+  }
   if (leaf_node->GetSize() < leaf_node->GetMinSize()) {
     CoalesceOrRedistribute(leaf_node, transaction);
   }
@@ -249,7 +269,7 @@ bool BPlusTree::CoalesceOrRedistribute(N *&node, Transaction *transaction) {
   // find sibling
   int index = parent->ValueIndex(node->GetPageId());
   N *sibling = nullptr;
-  if (index == -1) {  // node is the first child
+  if (index == 0) {  // node is the first child
     sibling = reinterpret_cast<N *>(buffer_pool_manager_->FetchPage(parent->ValueAt(1))->GetData());
   } else {  // node is not the first child
     sibling = reinterpret_cast<N *>(buffer_pool_manager_->FetchPage(parent->ValueAt(index - 1))->GetData());
@@ -280,10 +300,15 @@ bool BPlusTree::CoalesceOrRedistribute(N *&node, Transaction *transaction) {
  */
 bool BPlusTree::Coalesce(LeafPage *&neighbor_node, LeafPage *&node, InternalPage *&parent, int index,
                          Transaction *transaction) {
-  neighbor_node->SetNextPageId(node->GetNextPageId());
+  if (index == 0) {  // node is the first child
+      LeafPage *temp = neighbor_node;
+      neighbor_node = node;
+      node = temp;
+      index = 1;
+  }
   node->MoveAllTo(neighbor_node);
   buffer_pool_manager_->DeletePage(node->GetPageId());
-  parent->Remove(index + 1);
+  parent->Remove(index);
   if (parent->GetSize() < parent->GetMinSize()) {
     return CoalesceOrRedistribute(parent, transaction);
   }
@@ -292,10 +317,15 @@ bool BPlusTree::Coalesce(LeafPage *&neighbor_node, LeafPage *&node, InternalPage
 
 bool BPlusTree::Coalesce(InternalPage *&neighbor_node, InternalPage *&node, InternalPage *&parent, int index,
                          Transaction *transaction) {
+  if(parent->ValueIndex(node->GetPageId()) < parent->ValueIndex(neighbor_node->GetPageId())) {
+    InternalPage *temp = neighbor_node;
+    neighbor_node = node;
+    node = temp;
+    index = parent->ValueIndex(node->GetPageId());
+  }
   GenericKey *middle_key = parent->KeyAt(index);
   node->MoveAllTo(neighbor_node, middle_key, buffer_pool_manager_);
   buffer_pool_manager_->DeletePage(node->GetPageId());
-  parent->Remove(index + 1);
   if (parent->GetSize() < parent->GetMinSize()) {
     return CoalesceOrRedistribute(parent, transaction);
   }
@@ -314,18 +344,34 @@ bool BPlusTree::Coalesce(InternalPage *&neighbor_node, InternalPage *&node, Inte
 void BPlusTree::Redistribute(LeafPage *neighbor_node, LeafPage *node, int index) {
   if (index == 0) {
     neighbor_node->MoveFirstToEndOf(node);
+    // update parent key
+    auto parent = reinterpret_cast<InternalPage *>(buffer_pool_manager_->FetchPage(node->GetParentPageId())->GetData());
+    assert(parent != nullptr);
+    parent->SetKeyAt(1, neighbor_node->KeyAt(0));
   } else {
     neighbor_node->MoveLastToFrontOf(node);
+    // update parent key
+    auto parent = reinterpret_cast<InternalPage *>(buffer_pool_manager_->FetchPage(neighbor_node->GetParentPageId())->GetData());
+    assert(parent != nullptr);
+    parent->SetKeyAt(index, node->KeyAt(0));
   }
 }
 void BPlusTree::Redistribute(InternalPage *neighbor_node, InternalPage *node, int index) {
   auto parent = reinterpret_cast<InternalPage *>(buffer_pool_manager_->FetchPage(node->GetParentPageId())->GetData());
   assert(parent != nullptr);
-  GenericKey *middle_key = parent->KeyAt(index);
+  GenericKey *middle_key;
   if (index == 0) {
+    middle_key = parent->KeyAt(1);
     neighbor_node->MoveFirstToEndOf(node, middle_key, buffer_pool_manager_);
+    // update parent key
+    LeafPage *child = reinterpret_cast<LeafPage *>(FindLeafPage(nullptr, neighbor_node->GetPageId(), true));
+    parent->SetKeyAt(1, child->KeyAt(0));
   } else {
+    middle_key = parent->KeyAt(index);
     neighbor_node->MoveLastToFrontOf(node, middle_key, buffer_pool_manager_);
+    // update parent key
+    LeafPage *child = reinterpret_cast<LeafPage *>(FindLeafPage(nullptr, node->GetPageId(), true));
+    parent->SetKeyAt(index, child->KeyAt(0));
   }
 }
 /*
@@ -382,6 +428,15 @@ IndexIterator BPlusTree::Begin(const GenericKey *key) {
   Page *leaf_page = FindLeafPage(key, root_page_id_, false);
   LeafPage *leaf_node = reinterpret_cast<LeafPage *>(leaf_page->GetData());
   int index = leaf_node->KeyIndex(key, processor_);
+  if (index == leaf_node->GetSize()) {
+    if (leaf_node->GetNextPageId() == INVALID_PAGE_ID) {
+      return End();
+    } else {
+      leaf_page = buffer_pool_manager_->FetchPage(leaf_node->GetNextPageId());
+      leaf_node = reinterpret_cast<LeafPage *>(leaf_page->GetData());
+      index = 0;
+    }
+  }
   return IndexIterator(leaf_page->GetPageId(), buffer_pool_manager_, index);
 }
 
@@ -457,7 +512,8 @@ void BPlusTree::ToGraph(BPlusTreePage *page, BufferPoolManager *bpm, std::ofstre
         << "</TD></TR>\n";
     out << "<TR>";
     for (int i = 0; i < leaf->GetSize(); i++) {
-      out << "<TD>" << leaf->KeyAt(i) << "</TD>\n";
+      // out << "<TD>" << leaf->KeyAt(i) << "</TD>\n";
+      out << "<TD>" << processor_.PrintKey(leaf->KeyAt(i)) << "</TD>\n";
     }
     out << "</TR>";
     // Print table end
@@ -491,7 +547,8 @@ void BPlusTree::ToGraph(BPlusTreePage *page, BufferPoolManager *bpm, std::ofstre
     for (int i = 0; i < inner->GetSize(); i++) {
       out << "<TD PORT=\"p" << inner->ValueAt(i) << "\">";
       if (i > 0) {
-        out << inner->KeyAt(i);
+        // out << inner->KeyAt(i);
+        out << processor_.PrintKey(inner->KeyAt(i));
       } else {
         out << " ";
       }
