@@ -19,7 +19,12 @@ TableIterator::TableIterator(bool mode, page_id_t first_page_id, Schema *schema,
     page_ = reinterpret_cast<TablePage *>(buffer_pool_manager_->FetchPage(first_page_id));
     assert(page_ != nullptr);
     RowId rid;
-    page_->GetFirstTupleRid(&rid);
+    if (!page_->GetFirstTupleRid(&rid)) {   // empty table
+        buffer_pool_manager_->UnpinPage(first_page_id, false);
+        page_ = nullptr;
+        row_ = new Row(RowId(INVALID_PAGE_ID, 0));
+        return;
+    }
     row_ = new Row(rid);
     page_->GetTuple(row_, schema_, txn, lock_manager_);
     buffer_pool_manager_->UnpinPage(first_page_id, false);

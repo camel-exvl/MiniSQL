@@ -236,104 +236,443 @@ void ExecuteEngine::ExecuteInformation(dberr_t result) {
       break;
   }
 }
-/**
- * TODO: Student Implement
- */
+
 dberr_t ExecuteEngine::ExecuteCreateDatabase(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteCreateDatabase" << std::endl;
 #endif
-  return DB_FAILED;
+  std::string db_name = ast->child_->val_;
+  // check if database already exists
+  if (dbs_.find(db_name) != dbs_.end()) {
+    return DB_ALREADY_EXIST;
+  }
+  // create database
+  DBStorageEngine *db = new DBStorageEngine(db_name, true);
+  dbs_[db_name] = db;
+  printf("Database %s created.\n", db_name.c_str());
+  return DB_SUCCESS;
 }
 
-/**
- * TODO: Student Implement
- */
 dberr_t ExecuteEngine::ExecuteDropDatabase(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteDropDatabase" << std::endl;
 #endif
- return DB_FAILED;
+  std::string db_name = ast->child_->val_;
+  // check if database exists
+  if (dbs_.find(db_name) == dbs_.end()) {
+    return DB_NOT_EXIST;
+  }
+  // drop database
+  DBStorageEngine *db = dbs_[db_name];
+  dbs_.erase(db_name);
+  remove(db_name.c_str());
+  delete db;
+  if (current_db_ == db_name) {
+    current_db_.clear();
+  }
+  printf("Database %s dropped.\n", db_name.c_str());
+  return DB_SUCCESS;
 }
 
-/**
- * TODO: Student Implement
- */
 dberr_t ExecuteEngine::ExecuteShowDatabases(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteShowDatabases" << std::endl;
 #endif
-  return DB_FAILED;
+  int max_width = 8;
+  for (const auto &db : dbs_) {
+    max_width = max(max_width, int(db.first.length()));
+  }
+  printf("+");
+  for (int i = 0; i < max_width + 2; i++) {
+    printf("-");
+  }
+  printf("+\n");
+  printf("|");
+  printf(" %s%*s", "Database", max_width - 8, " ");
+  if (max_width - 8 > 0) {
+    printf(" ");
+  }
+  printf("|\n");
+  printf("+");
+  for (int i = 0; i < max_width + 2; i++) {
+    printf("-");
+  }
+  printf("+\n");
+  for (const auto &db : dbs_) {
+    printf("|");
+    printf(" %s%*s", db.first.c_str(), max_width - int(db.first.length()), " ");
+    if (max_width - int(db.first.length()) > 0) {
+      printf(" ");
+    }
+    printf("|\n");
+  }
+  printf("+");
+  for (int i = 0; i < max_width + 2; i++) {
+    printf("-");
+  }
+  printf("+\n");
+  return DB_SUCCESS;
 }
 
-/**
- * TODO: Student Implement
- */
 dberr_t ExecuteEngine::ExecuteUseDatabase(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteUseDatabase" << std::endl;
 #endif
-  return DB_FAILED;
+  std::string db_name = ast->child_->val_;
+  // check if database exists
+  if (dbs_.find(db_name) == dbs_.end()) {
+    return DB_NOT_EXIST;
+  }
+  // use database
+  current_db_ = db_name;
+  printf("Database changed to %s.\n", db_name.c_str());
+  return DB_SUCCESS;
 }
 
-/**
- * TODO: Student Implement
- */
 dberr_t ExecuteEngine::ExecuteShowTables(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteShowTables" << std::endl;
 #endif
-  return DB_FAILED;
+  if (current_db_.empty()) {
+    printf("No database selected.\n");
+    return DB_FAILED;
+  }
+  auto iter = dbs_.find(current_db_);
+  if (iter == dbs_.end()) {
+    return DB_NOT_EXIST;
+  }
+  DBStorageEngine *db = iter->second;
+  std::vector<std::string> tables;
+  if (db->catalog_mgr_->GetTableNames(tables) != DB_SUCCESS) {
+    return DB_FAILED;
+  }
+
+  int max_width = 10 + current_db_.length();
+  for (const auto &table : tables) {
+    max_width = max(max_width, int(table.length()));
+  }
+  printf("+");
+  for (int i = 0; i < max_width + 2; i++) {
+    printf("-");
+  }
+  printf("+\n");
+  printf("|");
+  printf(" %s%s%*s", "Tables_in_", current_db_.c_str(), max_width - 10 - int(current_db_.length()), " ");
+  if (max_width - 10 - int(current_db_.length()) > 0) {
+    printf(" ");
+  }
+  printf("|\n");
+  printf("+");
+  for (int i = 0; i < max_width + 2; i++) {
+    printf("-");
+  }
+  printf("+\n");
+  for (const auto &table : tables) {
+    printf("|");
+    printf(" %s%*s", table.c_str(), max_width - int(table.length()), " ");
+    if (max_width - int(table.length()) > 0) {
+      printf(" ");
+    }
+    printf("|\n");
+  }
+  printf("+");
+  for (int i = 0; i < max_width + 2; i++) {
+    printf("-");
+  }
+  printf("+\n");
+  return DB_SUCCESS;
 }
 
-/**
- * TODO: Student Implement
- */
 dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteCreateTable" << std::endl;
 #endif
-  return DB_FAILED;
+  if (current_db_.empty()) {
+    printf("No database selected.\n");
+    return DB_FAILED;
+  }
+  auto storage_engine_iter = dbs_.find(current_db_);
+  if (storage_engine_iter == dbs_.end()) {
+    return DB_NOT_EXIST;
+  }
+  DBStorageEngine *db = storage_engine_iter->second;
+  std::string table_name = ast->child_->val_;
+
+  // get table schema
+  std::vector<Column *> columns;
+  uint32_t index = 0;
+  for(pSyntaxNode node = ast->child_->next_->child_; node != nullptr; node = node->next_) {
+    if (node->val_ != nullptr && std::string(node->val_) == "primary keys") {
+      // TODO: create index
+      for (pSyntaxNode key_node = node->child_; key_node != nullptr; key_node = key_node->next_) {
+        std::string key_name = key_node->val_;
+        for (auto column : columns) {
+          if (column->GetName() == key_name) {
+            column->SetNullable(false);
+            column->SetUnique(true);
+            break;
+          }
+        }
+      }
+    } else {
+      std::string column_name = node->child_->val_;
+      TypeId type = TypeId::kTypeInvalid;
+      uint32_t length = 0;
+      bool nullable = true;
+      bool unique = false;
+
+      if (node->val_ != nullptr && std::string(node->val_) == "unique") {
+        unique = true;
+      }
+      std::string type_str = node->child_->next_->val_;
+      if (type_str == "int") {
+        type = TypeId::kTypeInt;
+      } else if (type_str == "char") {
+        type = TypeId::kTypeChar;
+        length = std::stoi(node->child_->next_->child_->val_);
+      } else if (type_str == "float") {
+        type = TypeId::kTypeFloat;
+      } else {
+        return DB_FAILED;
+      }
+
+      if (type == TypeId::kTypeChar) {
+        columns.push_back(new Column(column_name, type, length, index, nullable, unique));
+      } else {
+        columns.push_back(new Column(column_name, type, index, nullable, unique));
+      }
+      index++;
+    }
+  }
+  TableSchema schema(columns);
+  TableInfo *table_info;
+  dberr_t res =db->catalog_mgr_->CreateTable(table_name, &schema, context->GetTransaction(), table_info);
+  if (res != DB_SUCCESS) {
+    return DB_FAILED;
+  }
+  printf("Table %s created.\n", table_name.c_str());
+  return DB_SUCCESS;
 }
 
-/**
- * TODO: Student Implement
- */
 dberr_t ExecuteEngine::ExecuteDropTable(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteDropTable" << std::endl;
 #endif
- return DB_FAILED;
+  if (current_db_.empty()) {
+    printf("No database selected.\n");
+    return DB_FAILED;
+  }
+  auto storage_engine_iter = dbs_.find(current_db_);
+  if (storage_engine_iter == dbs_.end()) {
+    return DB_NOT_EXIST;
+  }
+  DBStorageEngine *db = storage_engine_iter->second;
+  std::string table_name = ast->child_->val_;
+  dberr_t res = db->catalog_mgr_->DropTable(table_name);
+  if (res != DB_SUCCESS) {
+    return res;
+  }
+  printf("Table %s dropped.\n", table_name.c_str());
+  return DB_SUCCESS;
 }
 
-/**
- * TODO: Student Implement
- */
 dberr_t ExecuteEngine::ExecuteShowIndexes(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteShowIndexes" << std::endl;
 #endif
-  return DB_FAILED;
+  if (current_db_.empty()) {
+    printf("No database selected.\n");
+    return DB_FAILED;
+  }
+  auto storage_engine_iter = dbs_.find(current_db_);
+  if (storage_engine_iter == dbs_.end()) {
+    return DB_NOT_EXIST;
+  }
+  DBStorageEngine *db = storage_engine_iter->second;
+  std::vector<std::string> tables;
+  if (db->catalog_mgr_->GetTableNames(tables) != DB_SUCCESS) {
+    return DB_FAILED;
+  }
+
+  std::vector<IndexInfo *> indexes;
+  for (const auto &table : tables) {
+    std::string table_name = table;
+    std::vector<IndexInfo *> index;
+    dberr_t res = db->catalog_mgr_->GetTableIndexes(table_name, indexes);
+    if (res != DB_SUCCESS) {
+      if (res == DB_INDEX_NOT_FOUND) {
+        continue;
+      }
+      return res;
+    }
+    indexes.insert(indexes.end(), index.begin(), index.end());
+  }
+
+  int max_table_name_width = 10;
+  int max_column_name_width = 11;
+  int max_index_name_width = 10;
+  for (const auto &table : tables) {
+    max_table_name_width = max(max_table_name_width, int(table.length()));
+  }
+  // TODO: 或许可以显示一下表名
+  for (auto index : indexes) {
+    max_index_name_width = std::max(max_index_name_width, int(index->GetIndexName().length()));
+  }
+  vector<string> index_columns;
+  for (auto index : indexes) {
+    std::vector<Column *> columns = index->GetIndexKeySchema()->GetColumns();
+    std::string column_name = columns[0]->GetName();
+    for (int i = 1; i < columns.size(); i++) {
+      column_name += ", " + columns[i]->GetName();
+    }
+    max_column_name_width = std::max(max_column_name_width, int(column_name.length()));
+    index_columns.push_back(column_name);
+  }
+  printf("+");
+  for (int i = 0; i < max_index_name_width + 2; i++) {
+    printf("-");
+  }
+  printf("+");
+  for (int i = 0; i < max_column_name_width + 2; i++) {
+    printf("-");
+  }
+  printf("+\n");
+  // printf("| %s%*s", "Table_name", max_table_name_width - 10, " ");
+  // if (max_table_name_width - 10 > 0) {
+  //   printf(" ");
+  // }
+  printf("| %s%*s", "Index_name", max_index_name_width - 10, " ");
+  if (max_index_name_width - 10 > 0) {
+    printf(" ");
+  }
+  printf("| %s%*s", "Column_name", max_column_name_width - 11, " ");
+  if (max_column_name_width - 11 > 0) {
+    printf(" ");
+  }
+  printf("|\n+");
+  for (int i = 0; i < max_index_name_width + 2; i++) {
+    printf("-");
+  }
+  printf("+");
+  for (int i = 0; i < max_column_name_width + 2; i++) {
+    printf("-");
+  }
+  printf("+\n");
+  for (int i = 0; i < indexes.size(); i++) {
+    printf("| %s%*s", indexes[i]->GetIndexName().c_str(), max_index_name_width - indexes[i]->GetIndexName().length(), " ");
+    if (max_index_name_width - indexes[i]->GetIndexName().length() > 0) {
+      printf(" ");
+    }
+    printf("| %s%*s", index_columns[i].c_str(), max_column_name_width - index_columns[i].length(), " ");
+    if (max_column_name_width - index_columns[i].length() > 0) {
+      printf(" ");
+    }
+    printf("|\n");
+  }
+  printf("+");
+  for (int i = 0; i < max_index_name_width + 2; i++) {
+    printf("-");
+  }
+  printf("+");
+  for (int i = 0; i < max_column_name_width + 2; i++) {
+    printf("-");
+  }
+  printf("+\n");
+  return DB_SUCCESS;
 }
 
-/**
- * TODO: Student Implement
- */
 dberr_t ExecuteEngine::ExecuteCreateIndex(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteCreateIndex" << std::endl;
 #endif
-  return DB_FAILED;
+  if (current_db_.empty()) {
+    printf("No database selected.\n");
+    return DB_FAILED;
+  }
+  auto storage_engine_iter = dbs_.find(current_db_);
+  if (storage_engine_iter == dbs_.end()) {
+    return DB_NOT_EXIST;
+  }
+  DBStorageEngine *db = storage_engine_iter->second;
+  std::string index_name = ast->child_->val_;
+  std::string table_name = ast->child_->next_->val_;
+  std::string index_type = "bptree";
+  std::vector<std::string> keys;
+  if (std::string(ast->child_->next_->next_->val_) != "index keys") {
+    return DB_FAILED;
+  }
+  for (pSyntaxNode node = ast->child_->next_->next_->child_; node != nullptr; node = node->next_) {
+    keys.emplace_back(node->val_);
+  }
+  if (ast->child_->next_->next_->next_ != nullptr) {
+    if (std::string(ast->child_->next_->next_->next_->val_) != "index type") {
+      return DB_FAILED;
+    }
+    index_type = ast->child_->next_->next_->next_->child_->val_;
+  }
+  IndexInfo *index_info;
+  dberr_t res = db->catalog_mgr_->CreateIndex(table_name, index_name, keys, context->GetTransaction(), index_info, index_type);
+  if (res != DB_SUCCESS) {
+    return res;
+  }
+
+  // insert the tuples into the index
+  TableInfo *table_info;
+  res = db->catalog_mgr_->GetTable(table_name, table_info);
+  if (res != DB_SUCCESS) {
+    return res;
+  }
+  TableHeap *table_heap = table_info->GetTableHeap();
+  for (auto tuple = table_heap->Begin(context->GetTransaction()); tuple != table_heap->End(); tuple++) {
+    std::vector<Field> fields;
+    for (int i = 0; i < keys.size(); i++) {
+      uint32_t column_index;
+      if (table_info->GetSchema()->GetColumnIndex(keys[i], column_index) != DB_SUCCESS) {
+        return DB_FAILED;
+      }
+      fields.emplace_back(*(tuple->GetField(column_index)));
+    }
+    index_info->GetIndex()->InsertEntry(Row(fields), tuple->GetRowId(), context->GetTransaction());
+  }
+  printf("Create index %s on table %s success.\n", index_name.c_str(), table_name.c_str());
+  return DB_SUCCESS;
 }
 
-/**
- * TODO: Student Implement
- */
 dberr_t ExecuteEngine::ExecuteDropIndex(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteDropIndex" << std::endl;
 #endif
-  return DB_FAILED;
+  if (current_db_.empty()) {
+    printf("No database selected.\n");
+    return DB_FAILED;
+  }
+  auto storage_engine_iter = dbs_.find(current_db_);
+  if (storage_engine_iter == dbs_.end()) {
+    return DB_NOT_EXIST;
+  }
+  DBStorageEngine *db = storage_engine_iter->second;
+  std::string index_name = ast->child_->val_;
+  std::vector<std::string> table_names;
+  if (db->catalog_mgr_->GetTableNames(table_names) != DB_SUCCESS) {
+    return DB_FAILED;
+  }
+
+  for (auto table_name : table_names) {
+    IndexInfo *index_info;
+    dberr_t res = db->catalog_mgr_->GetIndex(table_name, index_name, index_info);
+    if (res != DB_SUCCESS) {
+      if (res == DB_INDEX_NOT_FOUND) {
+        continue;
+      }
+      return DB_FAILED;
+    }
+    if (db->catalog_mgr_->DropIndex(table_name, index_name) != DB_SUCCESS) {
+      return DB_FAILED;
+    }
+    printf("Drop index %s on table %s success.\n", index_name.c_str(), table_name.c_str());
+    return DB_SUCCESS;
+  }
+  return DB_INDEX_NOT_FOUND;
 }
 
 
@@ -368,12 +707,9 @@ dberr_t ExecuteEngine::ExecuteExecfile(pSyntaxNode ast, ExecuteContext *context)
   return DB_FAILED;
 }
 
-/**
- * TODO: Student Implement
- */
 dberr_t ExecuteEngine::ExecuteQuit(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteQuit" << std::endl;
 #endif
- return DB_FAILED;
+  return DB_QUIT;
 }

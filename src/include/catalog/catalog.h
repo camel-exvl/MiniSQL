@@ -82,6 +82,8 @@ class CatalogManager {
 
   dberr_t GetTables(std::vector<TableInfo *> &tables) const;
 
+  dberr_t GetTableNames(std::vector<std::string> &table_names) const;
+
   dberr_t CreateIndex(const std::string &table_name, const std::string &index_name,
                       const std::vector<std::string> &index_keys, Transaction *txn, IndexInfo *&index_info,
                       const string &index_type);

@@ -150,6 +150,13 @@ dberr_t CatalogManager::GetTables(vector<TableInfo *> &tables) const {
   return DB_SUCCESS;
 }
 
+dberr_t CatalogManager::GetTableNames(vector<string> &table_names) const {
+  for (auto iter : table_names_) {
+    table_names.push_back(iter.first);
+  }
+  return DB_SUCCESS;
+}
+
 dberr_t CatalogManager::CreateIndex(const std::string &table_name, const string &index_name,
                                     const std::vector<std::string> &index_keys, Transaction *txn,
                                     IndexInfo *&index_info, const string &index_type) {
