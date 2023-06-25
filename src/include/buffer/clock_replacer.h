@@ -11,6 +11,7 @@
 
 #include "buffer/replacer.h"
 #include "common/config.h"
+#include "glog/logging.h"
 
 using namespace std;
 
