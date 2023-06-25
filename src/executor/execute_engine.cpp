@@ -429,6 +429,8 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
 
       if (node->val_ != nullptr && std::string(node->val_) == "unique") {
         unique = true;
+        std::string index_name = table_name + "_index_" + column_name + "_unique";
+        column_constraints[index_name] = {column_name};
       }
       std::string type_str = node->child_->next_->val_;
       if (type_str == "int") {
@@ -682,6 +684,11 @@ dberr_t ExecuteEngine::ExecuteDropIndex(pSyntaxNode ast, ExecuteContext *context
     if (db->catalog_mgr_->DropIndex(table_name, index_name) != DB_SUCCESS) {
       return DB_FAILED;
     }
+
+    if (db->catalog_mgr_->DeleteIndex(table_name, index_name) != DB_SUCCESS) {
+      return DB_FAILED;
+    }
+
     printf("Drop index %s on table %s success.\n", index_name.c_str(), table_name.c_str());
     return DB_SUCCESS;
   }

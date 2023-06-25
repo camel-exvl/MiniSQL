@@ -318,13 +318,25 @@ dberr_t CatalogManager::DropIndex(const string &table_name, const string &index_
   if (!buffer_pool_manager_->DeletePage(index_meta_page_id)) {  // delete index meta page
     return DB_FAILED;
   }
-  index_name_iter->second.erase(index_name); // delete index name
-  if (index_name_iter->second.empty()) {
-    index_names_.erase(table_name);
-  }
+
+  // index_name_iter->second.erase(index_name); // delete index name
+  // if (index_name_iter->second.empty()) {
+  //   index_names_.erase(table_name);
+  // }
   indexes_.erase(index_id);
   catalog_meta_->index_meta_pages_.erase(index_id);
   return DB_SUCCESS;
+}
+
+dberr_t CatalogManager::DeleteIndex(const string &table_name, const string &index_name) {
+  auto index_name_iter = index_names_.find(table_name);
+  if (index_name_iter == index_names_.end()) {
+    return DB_INDEX_NOT_FOUND;
+  }
+  index_name_iter->second.erase(index_name);
+  if (index_name_iter->second.empty()) {
+    index_names_.erase(table_name);
+  }
 }
 
 dberr_t CatalogManager::FlushCatalogMetaPage() const {

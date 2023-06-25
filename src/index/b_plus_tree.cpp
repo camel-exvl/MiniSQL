@@ -225,26 +225,30 @@ void BPlusTree::Remove(const GenericKey *key, Transaction *transaction) {
   assert(leaf_page != nullptr);
   auto *leaf_node = reinterpret_cast<LeafPage *>(leaf_page->GetData());
   leaf_node->RemoveAndDeleteRecord(key, processor_);
+
   // update parent
-  Page *parent_page = buffer_pool_manager_->FetchPage(leaf_node->GetParentPageId());
-  page_id_t cur_page_id = leaf_node->GetPageId();
-  for(;;) {
-    assert(parent_page != nullptr);
-    InternalPage *parent_node = reinterpret_cast<InternalPage *>(parent_page->GetData());
-    if (parent_node->ValueIndex(cur_page_id) == 0) {  // first child
-      buffer_pool_manager_->UnpinPage(parent_page->GetPageId(), false);
-      if (parent_node->GetParentPageId() == INVALID_PAGE_ID) {
-        break;
+  if (leaf_node->GetParentPageId() != INVALID_PAGE_ID) {
+    Page *parent_page = buffer_pool_manager_->FetchPage(leaf_node->GetParentPageId());
+    page_id_t cur_page_id = leaf_node->GetPageId();
+    for(;;) {
+      assert(parent_page != nullptr);
+      InternalPage *parent_node = reinterpret_cast<InternalPage *>(parent_page->GetData());
+      if (parent_node->ValueIndex(cur_page_id) == 0) {  // first child
+        buffer_pool_manager_->UnpinPage(parent_page->GetPageId(), false);
+        if (parent_node->GetParentPageId() == INVALID_PAGE_ID) {
+          break;
+        } else {
+          cur_page_id = parent_node->GetPageId();
+          parent_page = buffer_pool_manager_->FetchPage(parent_node->GetParentPageId());
+        }
       } else {
-        cur_page_id = parent_node->GetPageId();
-        parent_page = buffer_pool_manager_->FetchPage(parent_node->GetParentPageId());
+        parent_node->SetKeyAt(parent_node->ValueIndex(cur_page_id), leaf_node->KeyAt(0));
+        buffer_pool_manager_->UnpinPage(parent_page->GetPageId(), true);
+        break;
       }
-    } else {
-      parent_node->SetKeyAt(parent_node->ValueIndex(cur_page_id), leaf_node->KeyAt(0));
-      buffer_pool_manager_->UnpinPage(parent_page->GetPageId(), true);
-      break;
     }
   }
+  
   if (leaf_node->GetSize() < leaf_node->GetMinSize()) {
     CoalesceOrRedistribute(leaf_node, transaction);
   }
