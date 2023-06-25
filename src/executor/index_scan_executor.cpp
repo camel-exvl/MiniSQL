@@ -22,7 +22,13 @@ void IndexScanExecutor::Init() {
           break;
         }
       }
-      assert(index_info != nullptr);
+      if (index_info == nullptr) {  // 如果所有列都有索引但找不到的话就报错
+        if (plan_->need_filter_) {
+          continue;
+        } else {
+          assert(false);
+        }
+      }
       vector<RowId> cur_row_id;
       vector<Field> field;
       field.emplace_back((std::dynamic_pointer_cast<ConstantValueExpression>(predicate->GetChildAt(1)))->val_);
@@ -45,11 +51,20 @@ bool IndexScanExecutor::Next(Row *row, RowId *rid) {
   if (cur_row_id_ >= row_ids_.size()) {
     return false;
   }
-  *rid = row_ids_[cur_row_id_];
-  row->SetRowId(*rid);
-  if (!table_heap_->GetTuple(row, exec_ctx_->GetTransaction())) {
-    return false;
+  for (; cur_row_id_ < row_ids_.size();) {
+    *rid = row_ids_[cur_row_id_];
+    row->SetRowId(*rid);
+    if (!table_heap_->GetTuple(row, exec_ctx_->GetTransaction())) {
+      return false;
+    }
+    cur_row_id_++;
+    if (plan_->need_filter_) {
+      if (plan_->GetPredicate()->Evaluate(row).CompareEquals(Field(kTypeInt, 1))) { // 部分列没有索引时需要额外判断是否符合要求
+        return true;
+      }
+    } else {
+      return true;
+    }
   }
-  cur_row_id_++;
   return true;
 }

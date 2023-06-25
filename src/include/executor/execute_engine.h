@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <ctime>
 
 #include "common/dberr.h"
 #include "common/instance.h"
@@ -12,8 +13,12 @@
 #include "executor/plans/abstract_plan.h"
 #include "record/row.h"
 #include "transaction/transaction.h"
+#include "parser/syntax_tree_printer.h"
+#include "utils/tree_file_mgr.h"
 
 extern "C" {
+int yyparse(void);
+#include "parser/minisql_lex.h"
 #include "parser/parser.h"
 };
 

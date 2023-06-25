@@ -401,11 +401,14 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
   // get table schema
   std::vector<Column *> columns;
   uint32_t index = 0;
+  std::unordered_map<std::string, std::vector<std::string>> column_constraints;
   for(pSyntaxNode node = ast->child_->next_->child_; node != nullptr; node = node->next_) {
     if (node->val_ != nullptr && std::string(node->val_) == "primary keys") {
-      // TODO: create index
+      std::vector<std::string> keys;
+      // set nullable and unique
       for (pSyntaxNode key_node = node->child_; key_node != nullptr; key_node = key_node->next_) {
         std::string key_name = key_node->val_;
+        keys.emplace_back(key_name);
         for (auto column : columns) {
           if (column->GetName() == key_name) {
             column->SetNullable(false);
@@ -414,6 +417,9 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
           }
         }
       }
+      // create index
+      std::string index_name = table_name + "_index_" + std::to_string(time(nullptr));
+      column_constraints[index_name] = keys;
     } else {
       std::string column_name = node->child_->val_;
       TypeId type = TypeId::kTypeInvalid;
@@ -449,6 +455,13 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
   dberr_t res =db->catalog_mgr_->CreateTable(table_name, &schema, context->GetTransaction(), table_info);
   if (res != DB_SUCCESS) {
     return DB_FAILED;
+  }
+  // create index
+  for (auto &constraint : column_constraints) {
+    IndexInfo *index_info;
+    if (db->catalog_mgr_->CreateIndex(table_name, constraint.first, constraint.second, context->GetTransaction(), index_info, "bptree") != DB_SUCCESS) {
+      return DB_FAILED;
+    }
   }
   printf("Table %s created.\n", table_name.c_str());
   return DB_SUCCESS;
@@ -697,14 +710,94 @@ dberr_t ExecuteEngine::ExecuteTrxRollback(pSyntaxNode ast, ExecuteContext *conte
   return DB_FAILED;
 }
 
-/**
- * TODO: Student Implement
- */
 dberr_t ExecuteEngine::ExecuteExecfile(pSyntaxNode ast, ExecuteContext *context) {
 #ifdef ENABLE_EXECUTE_DEBUG
   LOG(INFO) << "ExecuteExecfile" << std::endl;
 #endif
-  return DB_FAILED;
+  std::string file_name = ast->child_->val_;
+  std::ifstream file;
+  file.open(file_name);
+  if (!file) {
+    printf("Failed to open file %s.\n", file_name.c_str());
+    return DB_FAILED;
+  }
+
+  auto start_time = std::chrono::system_clock::now();
+
+  const int buf_size = 1024;
+  char buffer[buf_size] = {0};
+  char ch;
+  int i = 0;
+  // executor engine
+  // ExecuteEngine engine;
+  // for print syntax tree
+  // TreeFileManagers syntax_tree_file_mgr("syntax_tree_");
+  // uint32_t syntax_tree_id = 0;
+
+  while (file.get(ch)) {
+    if (ch == ';') {
+      buffer[i] = ch;
+      // LOG(INFO) << "Execute: " << buffer << std::endl;
+
+      // create buffer for sql input
+      YY_BUFFER_STATE bp = yy_scan_string(buffer);
+      if (bp == nullptr) {
+        LOG(ERROR) << "Failed to create yy buffer state." << std::endl;
+        exit(1);
+      }
+      yy_switch_to_buffer(bp);
+
+      // init parser module
+      MinisqlParserInit();
+
+      // parse
+      yyparse();
+
+      // parse result handle
+      if (MinisqlParserGetError()) {
+        // error
+        printf("%s\n", MinisqlParserGetErrorMessage());
+      } else {
+        // Comment them out if you don't need to debug the syntax tree
+        // printf("[INFO] Sql syntax parse ok!\n");
+        // SyntaxTreePrinter printer(MinisqlGetParserRootNode());
+        // printer.PrintTree(syntax_tree_file_mgr[syntax_tree_id++]);
+      }
+
+      auto result = Execute(MinisqlGetParserRootNode());
+
+      // clean memory after parse
+      MinisqlParserFinish();
+      yy_delete_buffer(bp);
+      yylex_destroy();
+
+      // quit condition
+      ExecuteInformation(result);
+      if (result == DB_QUIT) {
+        break;
+      }
+
+      memset(buffer, 0, sizeof(buffer));
+      i = 0;
+    } else if (ch != '\n' && ch != '\r') {
+      buffer[i++] = ch;
+      if (i == sizeof(buffer)) {
+        printf("Buffer overflow.\n");
+        return DB_FAILED;
+      }
+    }
+  }
+
+  auto stop_time = std::chrono::system_clock::now();
+  double duration_time =
+      double((std::chrono::duration_cast<std::chrono::milliseconds>(stop_time - start_time)).count());
+  // Return the result set as string.
+  std::stringstream ss;
+  ResultWriter writer(ss);
+  printf("Execute file %s success.\n", file_name.c_str());
+  printf("Total time: %.4lf sec\n", duration_time / 1000);
+  file.close();
+  return DB_SUCCESS;
 }
 
 dberr_t ExecuteEngine::ExecuteQuit(pSyntaxNode ast, ExecuteContext *context) {
