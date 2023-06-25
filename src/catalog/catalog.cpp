@@ -337,6 +337,7 @@ dberr_t CatalogManager::DeleteIndex(const string &table_name, const string &inde
   if (index_name_iter->second.empty()) {
     index_names_.erase(table_name);
   }
+  return DB_SUCCESS;
 }
 
 dberr_t CatalogManager::FlushCatalogMetaPage() const {

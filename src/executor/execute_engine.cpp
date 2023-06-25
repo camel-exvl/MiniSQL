@@ -456,13 +456,13 @@ dberr_t ExecuteEngine::ExecuteCreateTable(pSyntaxNode ast, ExecuteContext *conte
   TableInfo *table_info;
   dberr_t res =db->catalog_mgr_->CreateTable(table_name, &schema, context->GetTransaction(), table_info);
   if (res != DB_SUCCESS) {
-    return DB_FAILED;
+    return res;
   }
   // create index
   for (auto &constraint : column_constraints) {
     IndexInfo *index_info;
     if (db->catalog_mgr_->CreateIndex(table_name, constraint.first, constraint.second, context->GetTransaction(), index_info, "bptree") != DB_SUCCESS) {
-      return DB_FAILED;
+      return res;
     }
   }
   printf("Table %s created.\n", table_name.c_str());

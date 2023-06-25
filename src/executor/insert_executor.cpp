@@ -39,6 +39,7 @@ bool InsertExecutor::Next([[maybe_unused]] Row *row, RowId *rid) {
       std::vector<Field> key;
       key.emplace_back(*(child_row.GetField(unique_column.first)));
       if (index_info->GetIndex()->ScanKey(Row(key), scan_result, exec_ctx_->GetTransaction()) == DB_SUCCESS) {
+        printf("constraint unique failed, column: %s\n", unique_column.second->GetName().c_str());
         return false;
       }
     }
@@ -51,6 +52,7 @@ bool InsertExecutor::Next([[maybe_unused]] Row *row, RowId *rid) {
         for (int i = 0; i < index->GetIndexKeySchema()->GetColumnCount(); i++) {
           uint32_t column_index;
           if (table_info_->GetSchema()->GetColumnIndex(index->GetIndexKeySchema()->GetColumn(i)->GetName(), column_index) != DB_SUCCESS) {
+            printf("insert index failed, column: %s\n", index->GetIndexKeySchema()->GetColumn(i)->GetName().c_str());
             return false;
           }
           key.emplace_back(*(child_row.GetField(column_index)));
@@ -59,6 +61,7 @@ bool InsertExecutor::Next([[maybe_unused]] Row *row, RowId *rid) {
       }
       return true;
     }
+    printf("insert tuple failed\n");
     return false;
   } else {
     return false;

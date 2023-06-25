@@ -9,6 +9,7 @@
 #include "planner/expressions/column_value_expression.h"
 #include "planner/expressions/comparison_expression.h"
 #include "planner/expressions/constant_value_expression.h"
+#include "record/schema.h"
 
 /**
  * The IndexScanExecutor executor can over a table.
@@ -43,4 +44,6 @@ class IndexScanExecutor : public AbstractExecutor {
   vector<RowId> row_ids_;
   int cur_row_id_;
   TableHeap *table_heap_;
+  const Schema *schema_;
+  const Schema *key_schema_;
 };

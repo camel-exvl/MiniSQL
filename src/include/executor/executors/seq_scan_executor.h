@@ -11,6 +11,7 @@
 #include "executor/executors/abstract_executor.h"
 #include "executor/plans/seq_scan_plan.h"
 #include "storage/table_iterator.h"
+#include "record/schema.h"
 
 /**
  * The SeqScanExecutor executor executes a sequential table scan.
@@ -48,6 +49,8 @@ class SeqScanExecutor : public AbstractExecutor {
   const SeqScanPlanNode *plan_;
   TableIterator *table_iter_;
   TableIterator *end_iter_;
+  const Schema *schema_;
+  const Schema *key_schema_;
 };
 
 #endif  // MINISQL_SEQ_SCAN_EXECUTOR_H

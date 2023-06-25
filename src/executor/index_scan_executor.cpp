@@ -45,6 +45,8 @@ void IndexScanExecutor::Init() {
     }
   }
   cur_row_id_ = 0;
+  schema_ = table_info->GetSchema();
+  key_schema_ = plan_->OutputSchema();
 }
 
 bool IndexScanExecutor::Next(Row *row, RowId *rid) {
@@ -60,11 +62,19 @@ bool IndexScanExecutor::Next(Row *row, RowId *rid) {
     cur_row_id_++;
     if (plan_->need_filter_) {
       if (plan_->GetPredicate()->Evaluate(row).CompareEquals(Field(kTypeInt, 1))) { // 部分列没有索引时需要额外判断是否符合要求
+        Row row_src = *row;
+        Row row_dst;
+        row_src.GetKeyFromRow(schema_, key_schema_, row_dst);
+        *row = row_dst;
         return true;
       }
     } else {
+      Row row_src = *row;
+      Row row_dst;
+      row_src.GetKeyFromRow(schema_, key_schema_, row_dst);
+      *row = row_dst;
       return true;
     }
   }
-  return true;
+  return false;
 }
