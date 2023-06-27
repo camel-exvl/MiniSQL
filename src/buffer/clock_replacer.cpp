@@ -42,7 +42,7 @@ void CLOCKReplacer::Unpin(frame_id_t frame_id) {
             LOG(ERROR) << "CLOCKReplacer::Unpin: still no victim";
         } else {
             clock_list.push_back(frame_id);
-            clock_status[frame_id] = 0;
+            clock_status[frame_id] = 1;
         }
     }
 }
